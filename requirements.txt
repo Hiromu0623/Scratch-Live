@@ -1,0 +1,4 @@
+scratchattach
+python-dotenv
+flask
+gunicorn
