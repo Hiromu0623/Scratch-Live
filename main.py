@@ -81,4 +81,7 @@ def main():
         time.sleep(actual_sleep)
 
 if __name__ == "__main__":
-    main()
+    # 1. 先にScratch監視処理をバックグラウンド（裏側）で動かす
+    threading.Thread(target=scratch_loop, daemon=True).start()
+    # 2. メインでWebサーバー（Flask）を起動してポートを即座に開放する
+    run_flask()
