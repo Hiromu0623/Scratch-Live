@@ -1,8 +1,10 @@
 import os
 import time
+import threading  # ← これが抜けていたので追加！
 import warnings
 import scratchattach as scratch3
 from dotenv import load_dotenv
+from flask import Flask
 
 # 警告メッセージを非表示
 warnings.filterwarnings('ignore', category=scratch3.LoginDataWarning)
