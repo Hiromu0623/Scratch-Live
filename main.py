@@ -9,14 +9,13 @@ from flask import Flask
 # 警告メッセージを非表示
 warnings.filterwarnings('ignore', category=scratch3.LoginDataWarning)
 
-# .env ファイルを読み込む
 load_dotenv()
 
 SESSION_ID = os.getenv("SCRATCH_SESSION_ID")
 USERNAME = os.getenv("SCRATCH_USERNAME")
 PROJECT_ID = os.getenv("SCRATCH_PROJECT_ID")
 
-# --- Renderのスリープ防止用Webサーバー ---
+# --- Render用Webサーバー ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -38,11 +37,13 @@ def scratch_loop():
         session = scratch3.login_by_id(SESSION_ID, username=USERNAME)
         user = session.get_linked_user()
         
-        # 明示的にセッション付きのクラウド接続を確立
+        # 本家Scratchのクラウドサーバーへ明示的にWebSocket接続
         conn = session.connect_cloud(project_id=PROJECT_ID)
-        print("ログイン＆クラウド接続成功！定期監視を開始します。\n" + "-" * 40)
+        conn.connect() # ⬅ これが超重要です！
+        
+        print("【本家Scratch】クラウド接続成功！定期監視を開始します。\n" + "-" * 40)
     except Exception as e:
-        print(f"【エラー】初期ログインに失敗しました: {e}")
+        print(f"【エラー】初期接続に失敗しました: {e}")
         return
 
     last_followers = -1
@@ -51,28 +52,26 @@ def scratch_loop():
 
     while True:
         try:
-            # 1. ユーザー情報の取得
             user.update()
             follower_count = user.follower_count()
             message_count = user.message_count()
             
-            tick_count = (tick_count + 1) % 1000  # 1〜999のループ
+            tick_count = (tick_count + 1) % 1000
 
-            # 2. 変数送信（個別に try-except を入れてフリーズ防止）
+            # 15秒ごとに cloud_check を送信
             try:
                 conn.set_var("cloud_check", tick_count)
             except Exception as ve:
-                print(f"cloud_check送信失敗: {ve}")
+                print(f"cloud_check送信エラー: {ve}")
 
-            # フォロワー数やメッセージ数が変わった時、または初回
+            # 数値が変わった場合のみ通知ログを出して送信
             if follower_count != last_followers or message_count != last_messages:
                 print(f"[{time.strftime('%H:%M:%S')}] 🔔更新検出！ | フォロワー: {follower_count} | メッセージ: {message_count}")
-                
                 try:
                     conn.set_var("followers", follower_count)
                     conn.set_var("messages", message_count)
                 except Exception as ve:
-                    print(f"ステータス変数送信失敗: {ve}")
+                    print(f"ステータス変数送信エラー: {ve}")
 
                 last_followers = follower_count
                 last_messages = message_count
@@ -82,9 +81,8 @@ def scratch_loop():
         except Exception as e:
             print(f"【ループエラー】: {e}")
 
-        time.sleep(15)  # 15秒ごとに実行
+        time.sleep(15)
 
-# --- メイン実行 ---
 if __name__ == "__main__":
     threading.Thread(target=scratch_loop, daemon=True).start()
     run_flask()
