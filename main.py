@@ -52,25 +52,16 @@ def scratch_loop():
     last_followers = -1
     last_messages = -1
 
-    while True:
-        start_time = time.time()
-
+   while True:
         try:
             tick_count += 1
+            print(f"送信テスト中... ({tick_count}回目)")
             conn.set_var("cloud_check", tick_count)
+            print(f"-> 送信成功！ cloud_check = {tick_count}")
+        except Exception as e:
+            print(f"【エラー発生】: {e}")
 
-            follower_count = user.follower_count()
-            message_count = user.message_count()
-
-            if follower_count != last_followers or message_count != last_messages:
-                conn.set_var("followers", follower_count)
-                conn.set_var("messages", message_count)
-
-                current_time = time.strftime('%H:%M:%S')
-                print(f"[{current_time}] 🔔数値が更新されました！ | フォロワー: {follower_count} | メッセージ: {message_count}")
-                
-                last_followers = follower_count
-                last_messages = message_count
+        time.sleep(10)
 
         except Exception as e:
             print(f"【エラー】通信失敗 (再接続を試みます): {e}")
