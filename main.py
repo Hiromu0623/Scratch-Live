@@ -32,18 +32,18 @@ def scratch_loop():
         print("【エラー】環境変数の設定が不足しています。")
         return
 
-    print("Scratchにログイン中...")
+    print("Scratchへログイン＆接続を開始します...")
+    
     try:
         session = scratch3.login_by_id(SESSION_ID, username=USERNAME)
         user = session.get_linked_user()
         
-        # 本家Scratchのクラウドサーバーへ明示的にWebSocket接続
+        # 本家Scratchクラウド接続
         conn = session.connect_cloud(project_id=PROJECT_ID)
-        conn.connect() # ⬅ これが超重要です！
         
-        print("【本家Scratch】クラウド接続成功！定期監視を開始します。\n" + "-" * 40)
+        print("✅ ログイン＆接続手続き完了！監視ループに入ります。\n" + "-" * 40)
     except Exception as e:
-        print(f"【エラー】初期接続に失敗しました: {e}")
+        print(f"【初期化エラー】: {e}")
         return
 
     last_followers = -1
@@ -52,35 +52,37 @@ def scratch_loop():
 
     while True:
         try:
+            # 1. アカウント情報の更新
             user.update()
             follower_count = user.follower_count()
             message_count = user.message_count()
             
             tick_count = (tick_count + 1) % 1000
 
-            # 15秒ごとに cloud_check を送信
+            # 2. cloud_check の送信
             try:
                 conn.set_var("cloud_check", tick_count)
             except Exception as ve:
-                print(f"cloud_check送信エラー: {ve}")
+                print(f"⚠️ cloud_check 送信スキップ/失敗: {ve}")
 
-            # 数値が変わった場合のみ通知ログを出して送信
+            # 3. フォロワー・メッセージ数変化の検知と送信
             if follower_count != last_followers or message_count != last_messages:
                 print(f"[{time.strftime('%H:%M:%S')}] 🔔更新検出！ | フォロワー: {follower_count} | メッセージ: {message_count}")
                 try:
                     conn.set_var("followers", follower_count)
                     conn.set_var("messages", message_count)
                 except Exception as ve:
-                    print(f"ステータス変数送信エラー: {ve}")
+                    print(f"⚠️ ステータス変数 送信失敗: {ve}")
 
                 last_followers = follower_count
                 last_messages = message_count
             else:
-                print(f"[{time.strftime('%H:%M:%S')}] 監視中... (cloud_check={tick_count})")
+                print(f"[{time.strftime('%H:%M:%S')}] 監視稼働中... (cloud_check={tick_count})")
 
         except Exception as e:
             print(f"【ループエラー】: {e}")
 
+        # 15秒待機
         time.sleep(15)
 
 if __name__ == "__main__":
