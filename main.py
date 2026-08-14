@@ -38,51 +38,44 @@ def scratch_loop():
         session = scratch3.login_by_id(SESSION_ID, username=USERNAME)
         user = session.get_linked_user()
         
-        # 本家Scratchクラウド接続
         conn = session.connect_cloud(project_id=PROJECT_ID)
+        conn.connect()
         
-        print("✅ ログイン＆接続手続き完了！監視ループに入ります。\n" + "-" * 40)
+        print("✅ クラウド接続成功！24時間送信ループを開始します。\n" + "-" * 40)
     except Exception as e:
         print(f"【初期化エラー】: {e}")
         return
 
-    last_followers = -1
-    last_messages = -1
     tick_count = 0
 
     while True:
         try:
-            # 1. アカウント情報の更新
+            # 最新のユーザー情報を取得
             user.update()
             follower_count = user.follower_count()
             message_count = user.message_count()
             
             tick_count = (tick_count + 1) % 1000
 
-            # 2. cloud_check の送信
-            try:
-                conn.set_var("cloud_check", tick_count)
-            except Exception as ve:
-                print(f"⚠️ cloud_check 送信スキップ/失敗: {ve}")
+            # 3つの変数を順番に送信（0.2秒あけて連投エラー防止）
+            conn.set_var("followers", follower_count)
+            time.sleep(0.2)
+            conn.set_var("messages", message_count)
+            time.sleep(0.2)
+            conn.set_var("cloud_check", tick_count)
 
-            # 3. フォロワー・メッセージ数変化の検知と送信
-            if follower_count != last_followers or message_count != last_messages:
-                print(f"[{time.strftime('%H:%M:%S')}] 🔔更新検出！ | フォロワー: {follower_count} | メッセージ: {message_count}")
-                try:
-                    conn.set_var("followers", follower_count)
-                    conn.set_var("messages", message_count)
-                except Exception as ve:
-                    print(f"⚠️ ステータス変数 送信失敗: {ve}")
-
-                last_followers = follower_count
-                last_messages = message_count
-            else:
-                print(f"[{time.strftime('%H:%M:%S')}] 監視稼働中... (cloud_check={tick_count})")
+            current_time = time.strftime('%H:%M:%S')
+            print(f"[{current_time}] 恒常送信成功 | フォロワー: {follower_count} | メッセージ: {message_count} | check: {tick_count}")
 
         except Exception as e:
-            print(f"【ループエラー】: {e}")
+            print(f"【送信エラー】: {e}")
+            try:
+                conn = session.connect_cloud(project_id=PROJECT_ID)
+                conn.connect()
+            except:
+                pass
 
-        # 15秒待機
+        # 15秒間隔で実行
         time.sleep(15)
 
 if __name__ == "__main__":
